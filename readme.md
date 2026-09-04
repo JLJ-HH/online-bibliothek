@@ -1,6 +1,6 @@
 # Fallstudie: Digitale Bibliotheksverwaltung mit RAG-KI-Suche
 
-**Live-Demo / Test-URL:** [https://online-bibliothek.com](https://online-bibliothek.com)
+**Live-Demo / Test-URL:** [https://jljuarez.de/bibliothek/login](https://jljuarez.de/bibliothek/login) *(Blueprint-Anbindung über Flask-Portfolio auf Strato)*
 
 Dieses Projekt ist eine sichere PHP-Webanwendung zur Verwaltung von Bibliothekskunden, Buchbeständen und Ausleihen. Die Anwendung wurde für eine PHP-Fallstudie entwickelt und enthält einen sicheren Registrierungs-Workflow mit Verifizierungstokens sowie einen RAG-basierten (Retrieval-Augmented Generation) KI-Bibliothekar.
 
