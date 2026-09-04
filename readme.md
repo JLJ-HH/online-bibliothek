@@ -14,7 +14,7 @@ Die Anwendung bietet zwei Hauptrollen mit differenzierten Zugriffsrechten:
 
 - **Kundenverwaltung (CRUD):** Kunden registrieren, deren Kontaktdaten und Aktivitätsstatus (`ist_aktiv`) bearbeiten, Accounts sperren oder löschen.
 - **Medienverwaltung (CRUD):** Bücher und E-Books (PDFs) anlegen, bearbeiten und löschen.
-  - **KI-gestützte PDF-Analyse:** Beim Hochladen einer PDF liest der Parser den Text aus und erfasst mithilfe der Ollama-KI (`gemma3:12b`) die Buchdaten (Titel, Autor, ISBN) und generiert Zusammenfassungen und Inhaltsverzeichnisse. Die Formularfelder sind beim PDF-Upload optional.
+  - **KI-gestützte PDF-Analyse:** Beim Hochladen einer PDF liest der Parser den Text aus und erfasst mithilfe der Ollama-KI (`gemma4:31b`) die Buchdaten (Titel, Autor, ISBN) und generiert Zusammenfassungen und Inhaltsverzeichnisse. Die Formularfelder sind beim PDF-Upload optional.
   - **Sammel-Import:** Enthält eine PDF mehrere Bücher oder Benutzerinformationen, erkennt der Parser dies und legt automatisch alle erkannten Einträge in einem einzigen Durchlauf in der Datenbank an.
 - **Ausleih- & Rückgabeübersicht:** Einsicht in alle aktiven Ausleihen im System, manuelle Buchungen vornehmen und Rückgaben abwickeln.
 
@@ -24,7 +24,7 @@ Die Anwendung bietet zwei Hauptrollen mit differenzierten Zugriffsrechten:
 - **Verifikations-System:** E-Mail-Verifizierung über ein generiertes 6-stelliges Token und anschließendes Festlegen eines individuellen Passworts.
 - **Medien leihen:** Eigenständiges Ausleihen physischer Bücher (abhängig vom Bestand) oder digitaler E-Books (abhängig von der Anzahl an verfügbaren Lizenzen).
 - **Digitale Bibliothek:** PDFs direkt im Browser öffnen und lesen.
-- **KI-Bibliothekar:** Interaktiver Chatbot (gemma3:12b), der Buchempfehlungen auf Basis des Buchbestands sowie der hinterlegten Zusammenfassungen und Inhaltsverzeichnisse gibt (RAG). Dabei greift er bei Bedarf auch auf sein eigenes, vortrainiertes Allgemeinwissen zurück, um dem Nutzer umfassendere Literaturempfehlungen und Kontext zu bieten.
+- **KI-Bibliothekar:** Interaktiver Chatbot (`gemma4:31b`), der Buchempfehlungen auf Basis des Buchbestands sowie der hinterlegten Zusammenfassungen gibt (RAG). Das System nutzt Token-Optimierung (`max_tokens: 500`), Kontext-Kompression, ein smartes Antwort-Caching sowie einen Graceful-Degradation-Fallback für maximale Zuverlässigkeit.
 
 ---
 
@@ -79,7 +79,7 @@ Das Projekt erfüllt höchste Sicherheitsstandards für Webanwendungen:
 
 - **PHP:** Version 8.0 oder höher (mit aktivierter PDO-SQLite-Erweiterung).
 - **Webserver:** Apache (z. B. über XAMPP oder direkt auf Strato).
-- **Ollama (für die KI-Anbindung):** Eine laufende API (lokal oder gehostet via API-Gateway) mit dem Modell `gemma3:12b`.
+- **Ollama (für die KI-Anbindung):** Eine laufende API (lokal oder gehostet via API-Gateway) mit dem Modell `gemma4:31b`.
 
 ### Installationsschritte
 

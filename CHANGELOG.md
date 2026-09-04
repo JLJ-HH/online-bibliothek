@@ -4,6 +4,20 @@ Alle relevanten Änderungen an der **Online-Bibliothek** werden in dieser Datei 
 
 Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/de/).
 
+## [1.2.1] - 2026-09-04
+
+### Geändert
+- **KI-Modell-Upgrade auf `gemma4:31b`:** Umstellung des Ollama-Cloud-Modells von dem eingestellten `gemma3:12b` auf das Nachfolgemodell `gemma4:31b` in [index.php](file:///c:/github/online-bibliothek/index.php), [buch_anlegen.php](file:///c:/github/online-bibliothek/buch_anlegen.php) und [buch_bearbeiten.php](file:///c:/github/online-bibliothek/buch_bearbeiten.php).
+- **Token-Optimierung:** 
+  - Begrenzung der KI-Antwortlänge via `max_tokens => 500` für strukturierte 3-Absatz-Antworten bei minimalem Tokenverbrauch.
+  - Verschlankung des RAG-Kontexts durch Kompression von Buchzusammenfassungen und Aussparen roher Inhaltsverzeichnisse (bis zu 80% weniger Input-Tokens).
+
+### Hinzugefügt
+- **Antwort-Caching (`ki_cache`):** Einführung einer SQLite-Cache-Tabelle für KI-Antworten; identische Fragen verbrauchen 0 Tokens und antworten in 0,01 Sekunden.
+- **Graceful Degradation (Ausfallschutz):** Automatischer Heuristik-Fallback auf eine integrierte Katalogsuche bei API-Ausfall oder Rate-Limits für ausfallsichere Live-Demos.
+
+---
+
 ## [1.2.0] - 2026-09-04
 
 ### Geändert

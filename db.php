@@ -58,6 +58,15 @@ try {
         FOREIGN KEY (buch_id) REFERENCES buecher(id) ON DELETE CASCADE
     )");
 
+    // 5. Tabelle für KI-Antwort-Cache (spart Tokens und sichert Demos bei wiederholten Fragen ab)
+    $db->exec("CREATE TABLE IF NOT EXISTS ki_cache (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        frage_hash TEXT UNIQUE NOT NULL,
+        frage TEXT NOT NULL,
+        antwort TEXT NOT NULL,
+        angelegt_am DATETIME DEFAULT CURRENT_TIMESTAMP
+    )");
+
 } catch (PDOException $e) {
     die("Datenbankverbindung fehlgeschlagen: " . $e->getMessage());
 }

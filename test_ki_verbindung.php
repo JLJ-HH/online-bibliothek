@@ -3,13 +3,14 @@ $ollama_url = "https://ollama.com/v1/chat/completions";
 $api_key = "25341745defc47f8b6af81c2a6c6e91a.4nEigoTHxY7kUpl6pdCXUc_q";
 
 $data = [
-    "model" => "gemma3:12b",
+    "model" => "gemma4:31b",
     "messages" => [
         [
             "role" => "user",
             "content" => "Hi"
         ]
     ],
+    "max_tokens" => 500,
     "stream" => false
 ];
 

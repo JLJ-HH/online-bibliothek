@@ -51,7 +51,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             try {
                 $ollama_url = "https://ollama.com/v1/chat/completions";
                 $api_key = "25341745defc47f8b6af81c2a6c6e91a.4nEigoTHxY7kUpl6pdCXUc_q";
-                $model_name = "gemma3:12b";
+                $model_name = "gemma4:31b";
                 
                 $text_auszug = "Titel: " . $titel . ", Autor: " . $autor . ", ISBN: " . $isbn;
                 $system_instruction = "Du bist ein Literaturexperte. Generiere für das folgende Buch eine kurze Zusammenfassung und eine Kapitelübersicht aus deinem Wissen. Reagiere AUSSCHLIESSLICH im folgenden Format:\n"
@@ -64,6 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         ["role" => "system", "content" => $system_instruction],
                         ["role" => "user", "content" => $text_auszug]
                     ],
+                    "max_tokens" => 500,
                     "stream" => false
                 ];
                 $options = [

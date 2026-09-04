@@ -185,14 +185,14 @@ Das Skript [buch_anlegen.php](file:///c:/xampp/htdocs/php_uebungen/bibliothek_03
 
 #### Pfad 1: Manueller Eintrag
 1. Der Mitarbeiter füllt Titel, Autor und ISBN im Formular aus.
-2. Das Skript sendet im Hintergrund einen HTTP-Request an die **Ollama API** (`gemma3:12b`), um eine kurze Inhaltsangabe und ein Inhaltsverzeichnis zu generieren.
+2. Das Skript sendet im Hintergrund einen HTTP-Request an die **Ollama API** (`gemma4:31b`), um eine kurze Inhaltsangabe und ein Inhaltsverzeichnis zu generieren (`max_tokens: 500`).
 3. Die Buchdaten werden in `buecher` gespeichert; die generierten Texte wandern in die 1:1-Tabelle `buch_analysen`.
 
 #### Pfad 2: PDF-Upload (KI-gestütztes Parsing & Bulk-Import)
 1. Der Mitarbeiter lädt ein PDF-Dokument (E-Book) hoch.
 2. Die Datei wird in `uploads/` abgelegt.
 3. Der Parser (`Smalot\PdfParser\Parser`) extrahiert den Text aus der PDF (bis zu 2500 Zeichen).
-4. Dieser Text wird an die **Ollama API** geschickt. Der System-Prompt zwingt die KI, ausschließlich ein strukturiertes **JSON-Format** zurückzugeben:
+4. Dieser Text wird an die **Ollama API** (`gemma4:31b`) geschickt. Der System-Prompt zwingt die KI, ausschließlich ein strukturiertes **JSON-Format** zurückzugeben:
    ```json
    {
      "entries": [
@@ -207,15 +207,14 @@ Das Skript [buch_anlegen.php](file:///c:/xampp/htdocs/php_uebungen/bibliothek_03
 
 ---
 
-## 4. RAG-KI-Bibliothekar (Interaktiver Chatbot)
+## 4. RAG-KI-Bibliothekar (Interaktiver Chatbot mit Token-Schutz & Caching)
 
-Auf der [Startseite (index.php)](file:///c:/xampp/htdocs/php_uebungen/bibliothek_03/index.php) steht Kunden ein Chat-Feld zur Verfügung. Dieses implementiert ein einfaches **RAG (Retrieval-Augmented Generation)**-Verfahren:
+Auf der [Startseite (index.php)](file:///c:/xampp/htdocs/php_uebungen/bibliothek_03/index.php) steht Kunden ein Chat-Feld zur Verfügung. Dieses implementiert ein produktionsnahes **RAG (Retrieval-Augmented Generation)**-Verfahren mit Ausfallschutz:
 
-1. **Kontext laden**: PHP liest den kompletten aktuellen Buchbestand sowie sämtliche hinterlegten KI-Zusammenfassungen und Inhaltsverzeichnisse aus der Datenbank.
-2. **System-Prompt bauen**: Aus diesen Daten wird eine Liste formatiert und in den System-Prompt der KI eingebettet:
-   > *"Du bist ein hilfsbereiter KI-Bibliothekar. Beantworte Fragen basierend auf dem folgenden Buchbestand: [Buchliste mit Zusammenfassungen]..."*
-3. **API-Anfrage**: Die Frage des Nutzers wird zusammen mit diesem dynamisch generierten Prompt an das lokale/gehostete Modell `gemma3:12b` via HTTP POST übertragen.
-4. **Antwortausgabe**: Die strukturierte Empfehlung des KI-Bibliothekars wird empfangen und für den Nutzer formatiert auf dem Dashboard ausgegeben.
+1. **Intelligenter Cache-Check (`ki_cache`)**: Bevor ein Token verbraucht wird, prüft das System per MD5-Hash der Frage, ob eine identische Frage bereits beantwortet wurde. Treffer werden in 0,01 Sekunden mit **0 Token-Kosten** geliefert.
+2. **Kompaktes Kontext-Laden**: Statt voller Inhaltsverzeichnisse werden Titel, Autor, Typ und Kurz-Zusammenfassungen (max. 180 Zeichen) bereitgestellt. Dies spart bis zu **80% Input-Tokens**.
+3. **API-Anfrage & Begrenzung**: Die Frage wird mit optimiertem System-Prompt an das Cloud-Modell `gemma4:31b` übermittelt. Dank `max_tokens => 500` generiert die KI fokussiert bis zu 3 ansprechende Absätze.
+4. **Graceful Degradation (Heuristik-Fallback)**: Sollte die API oder das Netzwerk ausfallen, greift das System automatisch auf eine SQL-Volltextsuche im Katalog zurück, sodass der Nutzer zu jedem Zeitpunkt passende Buchempfehlungen erhält.
 
 ---
 

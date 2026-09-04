@@ -56,7 +56,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     // --- 2. OLLAMA KI-ANBINDUNG (DATENEXTRAKTION) ---
                     $ollama_url = "https://ollama.com/v1/chat/completions";
                     $api_key = "25341745defc47f8b6af81c2a6c6e91a.4nEigoTHxY7kUpl6pdCXUc_q";
-                    $model_name = "gemma3:12b";
+                    $model_name = "gemma4:31b";
 
                     // System-Instruktion: Teilt der KI ihre Rolle und das exakte JSON-Format mit
                     $system_instruction = "Du bist ein präziser Datenextraktions-Assistent. "
@@ -99,6 +99,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 "content" => "Hier ist der extrahierte Text:\n" . $text_auszug
                             ]
                         ],
+                        "max_tokens" => 500,
                         "stream" => false
                     ];
 
@@ -163,7 +164,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             try {
                 $ollama_url = "https://ollama.com/v1/chat/completions";
                 $api_key = "25341745defc47f8b6af81c2a6c6e91a.4nEigoTHxY7kUpl6pdCXUc_q";
-                $model_name = "gemma3:12b";
+                $model_name = "gemma4:31b";
 
                 // Je nachdem, ob es ein E-Book oder physisches Buch ist, anpassen
                 if ($typ === 'pdf' && !empty($pdf_pfad)) {
@@ -187,6 +188,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         ["role" => "system", "content" => $system_instruction],
                         ["role" => "user", "content" => $text_auszug]
                     ],
+                    "max_tokens" => 500,
                     "stream" => false
                 ];
                 $options = [

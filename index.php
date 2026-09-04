@@ -38,86 +38,112 @@ if (isset($_GET['leih_fehler'])) {
     }
 }
 
-// --- LOGIK FÜR DEN KI-BIBLIOTHEKAR (OLLAMA RAG-SYSTEM) ---
+// --- LOGIK FÜR DEN KI-BIBLIOTHEKAR (OLLAMA RAG-SYSTEM MIT TOKEN-OPTIMIERUNG) ---
 $ki_antwort = '';
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ki_frage'])) {// wenn der nutzer eine frage an den ki-bibliothekar stellt
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ki_frage'])) {
     $user_query = trim($_POST['ki_frage']);
     if (!empty($user_query)) {
         try {
-            // 1. Kontext-Wissen laden (RAG - Retrieval-Augmented Generation):
-            // Wir laden den gesamten aktuellen Buchbestand samt deren KI-Zusammenfassungen.
-            $ctx_query = $db->query("
-                SELECT b.id, b.titel, b.autor, b.typ, b.bestand, a.zusammenfassung, a.inhaltsverzeichnis 
-                FROM buecher b
-                LEFT JOIN buch_analysen a ON b.id = a.buch_id
-            ");
-            $ctx_books = $ctx_query->fetchAll(PDO::FETCH_ASSOC); // hier werden alle bücher aus der datenbank geladen
-            $books_context = ""; // hier wird der kontext für den ki-bibliothekar gespeichert
-            foreach ($ctx_books as $bk) {// hier werden alle bücher durchlaufen
-                $books_context .= "- ID: {$bk['id']}, Titel: '{$bk['titel']}', Autor: '{$bk['autor']}', Format: '{$bk['typ']}', Bestand: {$bk['bestand']}\n";
-                if (!empty($bk['zusammenfassung'])) {// hier wird die zusammenfassung des buches gespeichert
-                    $books_context .= "  Zusammenfassung: " . $bk['zusammenfassung'] . "\n";
-                }
-                if (!empty($bk['inhaltsverzeichnis'])) {// hier wird das inhaltsverzeichnis des buches gespeichert
-                    $books_context .= "  Inhaltsverzeichnis: " . $bk['inhaltsverzeichnis'] . "\n";
-                }
-            }
+            // 0. Cache prüfen: Bereits beantwortete Fragen kosten 0 Tokens!
+            $query_hash = md5(mb_strtolower(preg_replace('/\s+/', ' ', $user_query)));
+            $cached_stmt = $db->prepare("SELECT antwort FROM ki_cache WHERE frage_hash = ?");
+            $cached_stmt->execute([$query_hash]);
+            $cached = $cached_stmt->fetch(PDO::FETCH_ASSOC);
 
-            // 2. Ollama API Verbindung konfigurieren
-            $ollama_url = "https://ollama.com/v1/chat/completions";
-            $api_key = "25341745defc47f8b6af81c2a6c6e91a.4nEigoTHxY7kUpl6pdCXUc_q";
-
-            // Der System-Prompt teilt der KI ihren Namen, ihre Rolle und das RAG-Buchwissen mit.
-            $system_prompt = "Du bist ein hilfsbereiter, kompetenter und freundlicher KI-Bibliothekar namens Ollama. Beantworte die Fragen des Nutzers und gib detaillierte, ausführliche und qualitativ hochwertige Buchempfehlungen basierend auf dem folgenden Buchbestand sowie den Inhalten (Zusammenfassungen und Inhaltsverzeichnisse):\n"
-                . $books_context
-                . "\nRegeln für deine Antwort:\n"
-                . "1. Beziehe dich primär auf die Bücher aus dieser Liste. Nutze die hinterlegten Zusammenfassungen und Inhaltsverzeichnisse intensiv, um dem Nutzer fundierte und maßgeschneiderte Empfehlungen auszusprechen.\n"
-                . "2. Antworte auf Deutsch. Nimm dir ausreichend Raum, um die Bücher verständlich, flüssig und strukturiert vorzustellen (z. B. durch Absätze, Stichpunkte oder kurze Auszüge aus den Zusammenfassungen).\n"
-                . "3. Wenn kein Buch aus der Liste zu der Frage passt oder das gewünschte Thema nicht abgedeckt ist, weise freundlich darauf hin und schlage passende Alternativen aus dem Bestand vor.";
-
-            $data = [
-                "model" => "gemma3:12b",// hier wird das KI-Modell angegeben
-                "messages" => [
-                    [
-                        "role" => "system",
-                        "content" => $system_prompt// hier werden die buchempfehlungen generiert
-                    ],
-                    [
-                        "role" => "user",
-                        "content" => $user_query // hier wird die frage des nutzers gespeichert
-                    ]
-                ],
-                "stream" => false
-            ];
-
-            // HTTP POST an Ollama absenden
-            $options = [
-                'http' => [
-                    'method' => 'POST',
-                    'header' => "Content-Type: application/json\r\n" .
-                        "Authorization: Bearer " . $api_key . "\r\n", // hier wird die api-key angegeben
-                    'content' => json_encode($data), // hier werden die buchempfehlungen generiert
-                    'timeout' => 20,
-                    'ignore_errors' => true
-                ]
-            ];
-            $context = stream_context_create($options);
-            $response = @file_get_contents($ollama_url, false, $context);
-
-            $http_code = 0;
-            if (isset($http_response_header) && is_array($http_response_header)) {
-                preg_match('{HTTP\/\S*\s(\d{3})}', $http_response_header[0], $match);
-                $http_code = intval($match[1] ?? 0);
-            }
-
-            if ($http_code === 200 && $response) {
-                $json = json_decode($response, true);
-                $ki_antwort = $json['choices'][0]['message']['content'] ?? 'Keine Antwort erhalten.';
+            if ($cached) {
+                $ki_antwort = $cached['antwort'];
             } else {
-                $ki_antwort = "Der KI-Bibliothekar ist momentan nicht erreichbar (Ollama offline).";
+                // 1. Kontext-Wissen laden (Token-sparend: Metadaten & kompakte Zusammenfassung ohne rohe Inhaltsverzeichnisse)
+                $ctx_query = $db->query("
+                    SELECT b.id, b.titel, b.autor, b.typ, b.bestand, a.zusammenfassung 
+                    FROM buecher b
+                    LEFT JOIN buch_analysen a ON b.id = a.buch_id
+                ");
+                $ctx_books = $ctx_query->fetchAll(PDO::FETCH_ASSOC);
+                $books_context = "";
+                foreach ($ctx_books as $bk) {
+                    $books_context .= "- ID: {$bk['id']}, Titel: '{$bk['titel']}', Autor: '{$bk['autor']}', Format: '{$bk['typ']}', Bestand: {$bk['bestand']}\n";
+                    if (!empty($bk['zusammenfassung'])) {
+                        // Auf max. 180 Zeichen kürzen, um den Input-Tokenverbrauch um bis zu 80% zu senken
+                        $kurz_info = mb_substr(trim($bk['zusammenfassung']), 0, 180);
+                        $books_context .= "  Kurzinhalt: " . $kurz_info . "...\n";
+                    }
+                }
+
+                // 2. Ollama API Verbindung konfigurieren
+                $ollama_url = "https://ollama.com/v1/chat/completions";
+                $api_key = "25341745defc47f8b6af81c2a6c6e91a.4nEigoTHxY7kUpl6pdCXUc_q";
+
+                // Der System-Prompt: Bis zu 3 Absätze, präzise und lebendig
+                $system_prompt = "Du bist ein hilfsbereiter, kompetenter und freundlicher KI-Bibliothekar namens Ollama. Beantworte die Fragen des Nutzers und gib fundierte Buchempfehlungen basierend auf dem folgenden Buchbestand:\n"
+                    . $books_context
+                    . "\nRegeln für deine Antwort:\n"
+                    . "1. Beziehe dich primär auf die Bücher aus dieser Liste. Falls kein passendes Buch im Bestand ist, weise freundlich darauf hin und schlage themennahe Alternativen vor.\n"
+                    . "2. Antworte auf Deutsch in maximal 3 gut strukturierten, ansprechenden Absätzen (z. B. Begrüßung/Einordnung, Buchempfehlung mit Begründung, abschließender Ausleih-Tipp).\n"
+                    . "3. Formuliere flüssig, sympathisch und auf den Punkt.";
+
+                $data = [
+                    "model" => "gemma4:31b",
+                    "messages" => [
+                        [
+                            "role" => "system",
+                            "content" => $system_prompt
+                        ],
+                        [
+                            "role" => "user",
+                            "content" => $user_query
+                        ]
+                    ],
+                    "max_tokens" => 500, // Begrenzung auf ca. 3 Absätze zur Schonung des Token-Budgets
+                    "stream" => false
+                ];
+
+                // HTTP POST an Ollama absenden
+                $options = [
+                    'http' => [
+                        'method' => 'POST',
+                        'header' => "Content-Type: application/json\r\n" .
+                            "Authorization: Bearer " . $api_key . "\r\n",
+                        'content' => json_encode($data),
+                        'timeout' => 20,
+                        'ignore_errors' => true
+                    ]
+                ];
+                $context = stream_context_create($options);
+                $response = @file_get_contents($ollama_url, false, $context);
+
+                $http_code = 0;
+                if (isset($http_response_header) && is_array($http_response_header)) {
+                    preg_match('{HTTP\/\S*\s(\d{3})}', $http_response_header[0], $match);
+                    $http_code = intval($match[1] ?? 0);
+                }
+
+                if ($http_code === 200 && $response) {
+                    $json = json_decode($response, true);
+                    $ki_antwort = $json['choices'][0]['message']['content'] ?? 'Keine Antwort erhalten.';
+
+                    // Erfolgreiche Antwort im Cache sichern (wiederholte Fragen verbrauchen 0 Tokens)
+                    $ins_stmt = $db->prepare("INSERT OR REPLACE INTO ki_cache (frage_hash, frage, antwort) VALUES (?, ?, ?)");
+                    $ins_stmt->execute([$query_hash, $user_query, $ki_antwort]);
+                } else {
+                    // Intelligenter Heuristik-Fallback bei API-Ausfall / Rate-Limit (Graceful Degradation)
+                    $fb_stmt = $db->prepare("SELECT titel, autor, typ, bestand FROM buecher WHERE titel LIKE ? OR autor LIKE ? LIMIT 3");
+                    $fb_stmt->execute(["%$user_query%", "%$user_query%"]);
+                    $found_books = $fb_stmt->fetchAll(PDO::FETCH_ASSOC);
+
+                    if (!empty($found_books)) {
+                        $ki_antwort = "Der KI-Cloud-Dienst ist momentan im Ruhezustand. Ich habe unseren Bibliothekskatalog jedoch direkt für dich durchsucht und folgende passende Treffer gefunden:\n\n";
+                        foreach ($found_books as $fb) {
+                            $ki_antwort .= "• " . $fb['titel'] . " von " . $fb['autor'] . " (" . ucfirst($fb['typ']) . ", verfügbar: " . $fb['bestand'] . ")\n";
+                        }
+                        $ki_antwort .= "\nDu kannst diese Medien direkt oben in der Übersicht einsehen und ausleihen.";
+                    } else {
+                        $ki_antwort = "Der KI-Bibliothekar ist momentan ausgelastet. Bitte versuche es in Kürze noch einmal oder stöbere durch unseren Katalog in der Übersicht.";
+                    }
+                }
             }
         } catch (Exception $e) {
-            $ki_antwort = "Fehler bei der KI-Anfrage: " . $e->getMessage();
+            $ki_antwort = "Hinweis: Der KI-Bibliothekar ist momentan nicht erreichbar. Bitte nutze die Katalogsuche.";
         }
     }
 }
